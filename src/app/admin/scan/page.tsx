@@ -89,8 +89,15 @@ export default function ScanPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#1A2820', padding: 24, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <p style={{ margin: '0 0 4px', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#7AA394' }}>Admin</p>
+    <main style={{ minHeight: '100vh', background: '#1A2820', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #243029' }}>
+        <p style={{ margin: 0, fontSize: 13, color: '#7AA394', letterSpacing: '.1em', textTransform: 'uppercase' }}>Instant Douce'Heure — Admin</p>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <a href="/admin/clients" style={{ padding: '6px 14px', borderRadius: 6, fontSize: 13, color: '#7AA394', background: 'transparent', textDecoration: 'none' }}>Clients</a>
+          <a href="/admin/scan" style={{ padding: '6px 14px', borderRadius: 6, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3D6255', textDecoration: 'none' }}>Scanner</a>
+        </div>
+      </nav>
+      <div style={{ padding: 24 }}>
       <h1 style={{ margin: '0 0 28px', fontSize: 22, fontWeight: 400, fontFamily: 'Georgia, serif', color: '#E4EDE8' }}>Scanner un forfait</h1>
 
       {status === 'idle' && (
@@ -150,6 +157,7 @@ export default function ScanPage() {
           </button>
         </div>
       )}
+      </div>
     </main>
   )
 }
