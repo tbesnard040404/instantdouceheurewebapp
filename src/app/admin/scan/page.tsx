@@ -27,19 +27,20 @@ export default function ScanPage() {
   const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
-    let html5QrCode: unknown
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let scanner: any = null
     const startScanner = async () => {
       const { Html5Qrcode } = await import('html5-qrcode')
-      html5QrCode = new Html5Qrcode('qr-reader')
+      scanner = new Html5Qrcode('qr-reader')
       setScanning(true)
-      ;(html5QrCode as InstanceType<typeof Html5Qrcode>).start(
+      await scanner.start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: 250 },
         async (decodedText: string) => {
           const url = new URL(decodedText)
           const t = url.searchParams.get('token') ?? ''
           if (!t) return
-          await (html5QrCode as InstanceType<typeof Html5Qrcode>).stop()
+          await scanner.stop()
           setScanning(false)
           await fetchClient(t)
         },
@@ -48,8 +49,8 @@ export default function ScanPage() {
     }
     startScanner()
     return () => {
-      if (html5QrCode) {
-        (html5QrCode as InstanceType<typeof Html5Qrcode>).stop().catch(() => {})
+      if (scanner) {
+        scanner.stop().catch(() => {})
       }
     }
   }, [])
