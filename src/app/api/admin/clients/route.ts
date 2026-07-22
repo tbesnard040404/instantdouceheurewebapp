@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('clients')
-    .select('id, nom, email, type_forfait, seances_restantes, seances_totales, actif, expires_at, created_at, stripe_payment_id')
+    .select('id, nom, email, type_forfait, seances_restantes, seances_totales, actif, expires_at, created_at, stripe_payment_id, notes')
     .order('created_at', { ascending: false })
 
   if (error) {

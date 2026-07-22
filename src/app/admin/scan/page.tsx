@@ -18,50 +18,60 @@ const LABELS: Record<string, string> = {
   cadeau: 'Carte Cadeau',
 }
 
+const NAV: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #2C2F3A', background: '#111214', position: 'sticky' as const, top: 0, zIndex: 50 }
+const NAV_TITLE: React.CSSProperties = { margin: 0, fontSize: 11, color: '#5A5D75', letterSpacing: '.14em', textTransform: 'uppercase' as const, fontWeight: 600 }
+
 export default function ScanPage() {
   const scannerRef = useRef<HTMLDivElement>(null)
   const [client, setClient] = useState<ClientData | null>(null)
   const [token, setToken] = useState('')
-  const [status, setStatus] = useState<'idle' | 'confirm' | 'success' | 'error'>('idle')
+  const [status, setStatus] = useState<'idle' | 'requesting' | 'scanning' | 'confirm' | 'success' | 'error' | 'denied'>('idle')
   const [message, setMessage] = useState('')
-  const [scanning, setScanning] = useState(false)
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let scanner: any = null
+    if (status !== 'scanning') return
     const startScanner = async () => {
       const { Html5Qrcode } = await import('html5-qrcode')
       scanner = new Html5Qrcode('qr-reader')
-      setScanning(true)
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: 250 },
+        { fps: 10, qrbox: 240 },
         async (decodedText: string) => {
-          const url = new URL(decodedText)
-          const t = url.searchParams.get('token') ?? ''
-          if (!t) return
-          await scanner.stop()
-          setScanning(false)
-          await fetchClient(t)
+          try {
+            const url = new URL(decodedText)
+            const t = url.searchParams.get('token') ?? ''
+            if (!t) return
+            await scanner.stop()
+            setStatus('confirm')
+            await fetchClient(t)
+          } catch { /* invalid URL */ }
         },
         () => {}
       )
     }
     startScanner()
-    return () => {
-      if (scanner) {
-        scanner.stop().catch(() => {})
-      }
+    return () => { if (scanner) scanner.stop().catch(() => {}) }
+  }, [status])
+
+  async function requestCamera() {
+    setStatus('requesting')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      stream.getTracks().forEach(t => t.stop())
+      setStatus('scanning')
+    } catch {
+      setStatus('denied')
     }
-  }, [])
+  }
 
   async function fetchClient(t: string) {
     const res = await fetch(`/api/client/info?token=${t}`)
-    if (!res.ok) { setStatus('error'); setMessage('QR code invalide'); return }
+    if (!res.ok) { setStatus('error'); setMessage('QR code invalide ou forfait introuvable'); return }
     const data = await res.json()
     setClient(data)
     setToken(t)
-    setStatus('confirm')
   }
 
   async function validateSession() {
@@ -73,10 +83,10 @@ export default function ScanPage() {
     const data = await res.json()
     if (res.ok) {
       setStatus('success')
-      setMessage(`Séance validée ! Il reste ${data.seances_restantes} séance(s).`)
+      setMessage(`Séance validée. Séances restantes : ${data.seances_restantes}`)
     } else {
       setStatus('error')
-      setMessage(data.error ?? 'Erreur')
+      setMessage(data.error ?? 'Erreur lors de la validation')
     }
   }
 
@@ -85,79 +95,141 @@ export default function ScanPage() {
     setToken('')
     setStatus('idle')
     setMessage('')
-    window.location.reload()
   }
 
+  const pct = client ? Math.round((client.seances_restantes / client.seances_totales) * 100) : 0
+
   return (
-    <main style={{ minHeight: '100vh', background: '#1A2820', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-      <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #243029' }}>
-        <p style={{ margin: 0, fontSize: 13, color: '#7AA394', letterSpacing: '.1em', textTransform: 'uppercase' }}>Instant Douce'Heure — Admin</p>
+    <div style={{ minHeight: '100vh', background: '#111214', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <nav style={NAV}>
+        <p style={NAV_TITLE}>Instant Douce'Heure</p>
         <div style={{ display: 'flex', gap: 4 }}>
-          <a href="/admin/clients" style={{ padding: '6px 14px', borderRadius: 6, fontSize: 13, color: '#7AA394', background: 'transparent', textDecoration: 'none' }}>Clients</a>
-          <a href="/admin/scan" style={{ padding: '6px 14px', borderRadius: 6, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3D6255', textDecoration: 'none' }}>Scanner</a>
+          <a href="/admin/clients" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 13, color: '#8C8FA8', textDecoration: 'none' }}>Clients</a>
+          <a href="/admin/scan" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600, color: '#0D1F17', background: '#4CAF78', textDecoration: 'none' }}>Scanner</a>
         </div>
       </nav>
-      <div style={{ padding: 24 }}>
-      <h1 style={{ margin: '0 0 28px', fontSize: 22, fontWeight: 400, fontFamily: 'Georgia, serif', color: '#E4EDE8' }}>Scanner un forfait</h1>
 
-      {status === 'idle' && (
-        <div>
-          <div id="qr-reader" ref={scannerRef} style={{ width: '100%', maxWidth: 360, borderRadius: 12, overflow: 'hidden', border: '2px solid #3D6255' }} />
-          {scanning && <p style={{ color: '#7AA394', fontSize: 13, marginTop: 12 }}>Pointez la caméra vers le QR code du client...</p>}
-        </div>
-      )}
+      <div style={{ padding: '24px 20px', maxWidth: 480, margin: '0 auto' }}>
+        <h1 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 600, color: '#E4E6F0', letterSpacing: '-.01em' }}>Scanner un forfait</h1>
 
-      {status === 'confirm' && client && (
-        <div style={{ background: '#243029', borderRadius: 12, padding: '24px', maxWidth: 360 }}>
-          <p style={{ margin: '0 0 16px', color: '#7AA394', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase' }}>Client identifié</p>
-          <p style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#E4EDE8' }}>{client.nom}</p>
-          <p style={{ margin: '0 0 16px', fontSize: 14, color: '#7AA394' }}>{LABELS[client.type_forfait] ?? client.type_forfait}</p>
-
-          {client.seances_restantes === 0 ? (
-            <div style={{ background: '#3B1C1C', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-              <p style={{ margin: 0, color: '#F87171', fontWeight: 700 }}>⚠️ Forfait épuisé — aucune séance restante</p>
+        {/* IDLE — demande de permission */}
+        {status === 'idle' && (
+          <div style={{ background: '#1A1C22', border: '1px solid #2C2F3A', borderRadius: 14, padding: '32px 24px', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: '#1C2E26', border: '1px solid #2D4A3E', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4CAF78" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
             </div>
-          ) : (
-            <div style={{ background: '#1A2820', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 13, color: '#5A6E68' }}>Séances restantes</p>
-              <p style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#3D6255' }}>{client.seances_restantes} <span style={{ fontSize: 14, color: '#5A6E68', fontWeight: 400 }}>/ {client.seances_totales}</span></p>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={reset} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #2C3A33', borderRadius: 8, color: '#7AA394', fontSize: 14, cursor: 'pointer' }}>
-              Annuler
-            </button>
+            <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600, color: '#E4E6F0' }}>Accès caméra requis</p>
+            <p style={{ margin: '0 0 24px', fontSize: 13, color: '#5A5D75', lineHeight: 1.5 }}>Cliquez pour autoriser la caméra et scanner le QR code du client.</p>
             <button
-              onClick={validateSession}
-              disabled={client.seances_restantes === 0}
-              style={{ flex: 1, padding: '12px', background: client.seances_restantes === 0 ? '#2C3A33' : '#3D6255', border: 'none', borderRadius: 8, color: client.seances_restantes === 0 ? '#5A6E68' : '#fff', fontSize: 14, fontWeight: 700, cursor: client.seances_restantes === 0 ? 'not-allowed' : 'pointer' }}
+              onClick={requestCamera}
+              style={{ padding: '12px 28px', background: '#4CAF78', border: 'none', borderRadius: 8, color: '#0D1F17', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
             >
-              ✓ Valider la séance
+              Activer la caméra
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {status === 'success' && (
-        <div style={{ background: '#1A3025', border: '1px solid #3D6255', borderRadius: 12, padding: 24, maxWidth: 360 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 24 }}>✅</p>
-          <p style={{ margin: '0 0 16px', color: '#4CAF78', fontWeight: 700, fontSize: 16 }}>{message}</p>
-          <button onClick={reset} style={{ padding: '12px 24px', background: '#3D6255', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            Scanner un autre client
-          </button>
-        </div>
-      )}
+        {/* REQUESTING */}
+        {status === 'requesting' && (
+          <div style={{ background: '#1A1C22', border: '1px solid #2C2F3A', borderRadius: 14, padding: 32, textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 14, color: '#8C8FA8' }}>Autorisation en cours...</p>
+          </div>
+        )}
 
-      {status === 'error' && (
-        <div style={{ background: '#3B1C1C', border: '1px solid #DC2626', borderRadius: 12, padding: 24, maxWidth: 360 }}>
-          <p style={{ margin: '0 0 16px', color: '#F87171', fontWeight: 700 }}>{message}</p>
-          <button onClick={reset} style={{ padding: '12px 24px', background: '#DC2626', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-            Réessayer
-          </button>
-        </div>
-      )}
+        {/* DENIED */}
+        {status === 'denied' && (
+          <div style={{ background: '#1A1215', border: '1px solid #3A1C22', borderRadius: 14, padding: '28px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', flexShrink: 0 }} />
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#EF4444' }}>Accès caméra refusé</span>
+            </div>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#5A5D75', lineHeight: 1.5 }}>Autorisez l'accès à la caméra dans les paramètres de votre navigateur, puis réessayez.</p>
+            <button onClick={reset} style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #2C2F3A', borderRadius: 8, color: '#8C8FA8', fontSize: 13, cursor: 'pointer' }}>Réessayer</button>
+          </div>
+        )}
+
+        {/* SCANNING */}
+        {status === 'scanning' && (
+          <div>
+            <div id="qr-reader" ref={scannerRef} style={{ width: '100%', borderRadius: 14, overflow: 'hidden', border: '2px solid #2D4A3E' }} />
+            <p style={{ margin: '12px 0 0', fontSize: 13, color: '#5A5D75', textAlign: 'center' }}>Pointez la caméra vers le QR code</p>
+          </div>
+        )}
+
+        {/* CONFIRM */}
+        {status === 'confirm' && client && (
+          <div style={{ background: '#1A1C22', border: '1px solid #2C2F3A', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: '20px 20px 16px' }}>
+              <p style={{ margin: '0 0 2px', fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: '#5A5D75', fontWeight: 600 }}>Client identifié</p>
+              <p style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#E4E6F0' }}>{client.nom}</p>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#8C8FA8' }}>{LABELS[client.type_forfait] ?? client.type_forfait}</p>
+
+              {client.seances_restantes === 0 ? (
+                <div style={{ background: '#1A1215', border: '1px solid #3A1C22', borderRadius: 10, padding: '14px 16px', marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444' }} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#EF4444' }}>Forfait épuisé — aucune séance disponible</span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#5A5D75' }}>Séances disponibles</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: '#4CAF78' }}>{client.seances_restantes} / {client.seances_totales}</span>
+                  </div>
+                  <div style={{ background: '#21242D', borderRadius: 100, height: 6, marginBottom: 4 }}>
+                    <div style={{ background: '#4CAF78', borderRadius: 100, height: 6, width: `${pct}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', borderTop: '1px solid #2C2F3A' }}>
+              <button onClick={reset} style={{ flex: 1, padding: '14px', background: 'transparent', border: 'none', borderRight: '1px solid #2C2F3A', color: '#8C8FA8', fontSize: 14, cursor: 'pointer' }}>
+                Annuler
+              </button>
+              <button
+                onClick={validateSession}
+                disabled={client.seances_restantes === 0}
+                style={{ flex: 2, padding: '14px', background: client.seances_restantes === 0 ? '#1A1C22' : '#4CAF78', border: 'none', color: client.seances_restantes === 0 ? '#3A3D4A' : '#0D1F17', fontSize: 14, fontWeight: 700, cursor: client.seances_restantes === 0 ? 'not-allowed' : 'pointer' }}
+              >
+                Valider la séance
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SUCCESS */}
+        {status === 'success' && (
+          <div style={{ background: '#111C16', border: '1px solid #2D4A3E', borderRadius: 14, padding: '28px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4CAF78' }} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#4CAF78' }}>Séance validée</span>
+            </div>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#5A5D75' }}>{message}</p>
+            <button onClick={reset} style={{ padding: '11px 24px', background: '#4CAF78', border: 'none', borderRadius: 8, color: '#0D1F17', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              Scanner un autre client
+            </button>
+          </div>
+        )}
+
+        {/* ERROR */}
+        {status === 'error' && (
+          <div style={{ background: '#1A1215', border: '1px solid #3A1C22', borderRadius: 14, padding: '28px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444' }} />
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#EF4444' }}>Erreur</span>
+            </div>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#5A5D75' }}>{message}</p>
+            <button onClick={reset} style={{ padding: '11px 24px', background: 'transparent', border: '1px solid #3A1C22', borderRadius: 8, color: '#EF4444', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Réessayer
+            </button>
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   )
 }

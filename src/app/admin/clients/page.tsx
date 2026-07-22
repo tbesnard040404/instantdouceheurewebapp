@@ -8,16 +8,7 @@ const LABELS: Record<string, string> = {
   intensif: 'Intensif',
   grossesse: 'Grossesse',
   perinatalite: 'Périnatalité',
-  cadeau: 'Carte cadeau',
-}
-
-const FORFAIT_COLOR: Record<string, string> = {
-  essentiel: '#5B8C7A',
-  regulier: '#3D6255',
-  intensif: '#2A4A3E',
-  grossesse: '#B8966A',
-  perinatalite: '#8C6A8C',
-  cadeau: '#C25B5B',
+  cadeau: 'Cadeau',
 }
 
 interface Client {
@@ -33,11 +24,7 @@ interface Client {
   notes: string
 }
 
-interface HistoryEntry {
-  id: string
-  validated_at: string
-}
-
+interface HistoryEntry { id: string; validated_at: string }
 type Filter = 'all' | 'active' | 'low' | 'empty' | 'inactive'
 
 function alertLevel(c: Client): 'ok' | 'low' | 'empty' | 'inactive' | 'expired' {
@@ -46,6 +33,29 @@ function alertLevel(c: Client): 'ok' | 'low' | 'empty' | 'inactive' | 'expired' 
   if (c.seances_restantes === 0) return 'empty'
   if (c.seances_restantes <= 2) return 'low'
   return 'ok'
+}
+
+const C = {
+  bg: '#111214',
+  surface: '#1A1C22',
+  surface2: '#21242D',
+  border: '#2C2F3A',
+  text: '#E4E6F0',
+  text2: '#8C8FA8',
+  text3: '#5A5D75',
+  accent: '#4CAF78',
+  accentBg: '#111C16',
+  accentBorder: '#2D4A3E',
+  warn: '#F59E0B',
+  warnBg: '#171208',
+  danger: '#EF4444',
+  dangerBg: '#1A1215',
+  dangerBorder: '#3A1C22',
+}
+
+const StatusDot = ({ level }: { level: ReturnType<typeof alertLevel> }) => {
+  const color = level === 'ok' ? C.accent : level === 'low' ? C.warn : level === 'empty' || level === 'expired' ? C.danger : C.text3
+  return <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
 }
 
 export default function AdminClientsPage() {
@@ -58,10 +68,10 @@ export default function AdminClientsPage() {
   const [history, setHistory] = useState<Record<string, HistoryEntry[]>>({})
   const [editingNote, setEditingNote] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
-  const showToast = (msg: string) => {
-    setToast(msg)
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -95,7 +105,9 @@ export default function AdminClientsPage() {
     if (res.ok) {
       const updated = await res.json()
       setClients(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c))
-      showToast(`✅ Forfait de ${nom} renouvelé`)
+      showToast(`Forfait de ${nom} renouvelé`)
+    } else {
+      showToast('Erreur lors du renouvellement', false)
     }
     setSaving(null)
   }
@@ -103,43 +115,27 @@ export default function AdminClientsPage() {
   async function loadHistory(id: string) {
     if (history[id]) return
     const res = await fetch(`/api/admin/clients/${id}/history`)
-    if (res.ok) {
-      const data = await res.json()
-      setHistory(prev => ({ ...prev, [id]: data }))
-    }
+    if (res.ok) setHistory(prev => ({ ...prev, [id]: await res.json() }))
   }
 
   function toggleExpand(id: string) {
-    if (expanded === id) {
-      setExpanded(null)
-    } else {
-      setExpanded(id)
-      loadHistory(id)
-    }
+    if (expanded === id) { setExpanded(null); return }
+    setExpanded(id)
+    loadHistory(id)
   }
 
   async function saveNote(id: string) {
     await patch(id, { notes: noteValue })
     setEditingNote(null)
-    showToast('Note sauvegardée')
+    showToast('Note enregistrée')
   }
 
   const filtered = clients.filter(c => {
-    const matchSearch =
-      c.nom.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase()) ||
-      (LABELS[c.type_forfait] ?? '').toLowerCase().includes(search.toLowerCase())
-
+    const s = search.toLowerCase()
+    const match = c.nom.toLowerCase().includes(s) || c.email.toLowerCase().includes(s) || (LABELS[c.type_forfait] ?? '').toLowerCase().includes(s)
     const level = alertLevel(c)
-    const matchFilter =
-      filter === 'all' ? true :
-      filter === 'active' ? (c.actif && level === 'ok') :
-      filter === 'low' ? level === 'low' :
-      filter === 'empty' ? (level === 'empty' || level === 'expired') :
-      filter === 'inactive' ? (level === 'inactive') :
-      true
-
-    return matchSearch && matchFilter
+    const filterMatch = filter === 'all' ? true : filter === 'active' ? level === 'ok' : filter === 'low' ? level === 'low' : filter === 'empty' ? (level === 'empty' || level === 'expired') : level === 'inactive'
+    return match && filterMatch
   })
 
   const counts = {
@@ -151,217 +147,177 @@ export default function AdminClientsPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#1A2820', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', paddingBottom: 80 }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', paddingBottom: 60 }}>
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#3D6255', color: '#fff', padding: '10px 20px', borderRadius: 20, fontSize: 14, fontWeight: 600, zIndex: 100, boxShadow: '0 4px 16px rgba(0,0,0,.3)', whiteSpace: 'nowrap' }}>
-          {toast}
+        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: toast.ok ? C.accentBg : C.dangerBg, border: `1px solid ${toast.ok ? C.accentBorder : C.dangerBorder}`, color: toast.ok ? C.accent : C.danger, padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,.4)', whiteSpace: 'nowrap' }}>
+          {toast.msg}
         </div>
       )}
 
       {/* Nav */}
-      <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #243029', position: 'sticky', top: 0, background: '#1A2820', zIndex: 50 }}>
-        <span style={{ fontSize: 12, color: '#7AA394', letterSpacing: '.1em', textTransform: 'uppercase', fontWeight: 600 }}>Instant Douce'Heure</span>
+      <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg, position: 'sticky', top: 0, zIndex: 50 }}>
+        <span style={{ fontSize: 11, color: C.text3, letterSpacing: '.14em', textTransform: 'uppercase', fontWeight: 600 }}>Instant Douce'Heure</span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <a href="/admin/clients" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3D6255', textDecoration: 'none' }}>Clients</a>
-          <a href="/admin/scan" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 13, color: '#7AA394', textDecoration: 'none' }}>Scanner</a>
+          <a href="/admin/clients" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600, color: '#0D1F17', background: C.accent, textDecoration: 'none' }}>Clients</a>
+          <a href="/admin/scan" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 13, color: C.text2, textDecoration: 'none' }}>Scanner</a>
         </div>
       </nav>
 
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: '20px', maxWidth: 800, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 400, fontFamily: 'Georgia,serif', color: '#E4EDE8' }}>
-            Clients <span style={{ fontSize: 14, color: '#5A6E68', fontFamily: 'system-ui' }}>{clients.length}</span>
-          </h1>
-          <a
-            href="/api/admin/export"
-            style={{ padding: '8px 14px', background: '#243029', border: '1px solid #2C3A33', borderRadius: 8, color: '#7AA394', fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            ↓ Export CSV
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h1 style={{ margin: '0 0 2px', fontSize: 20, fontWeight: 600, color: C.text, letterSpacing: '-.01em' }}>Clients</h1>
+            <p style={{ margin: 0, fontSize: 13, color: C.text3 }}>{clients.length} enregistrement{clients.length !== 1 ? 's' : ''}</p>
+          </div>
+          <a href="/api/admin/export" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text2, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
           </a>
         </div>
 
         {/* Search */}
-        <input
-          style={{ width: '100%', padding: '11px 14px', background: '#243029', border: '1px solid #2C3A33', borderRadius: 10, color: '#E4EDE8', fontSize: 14, marginBottom: 12, outline: 'none', boxSizing: 'border-box' }}
-          placeholder="🔍  Nom, email ou forfait..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div style={{ position: 'relative', marginBottom: 12 }}>
+          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.text3 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            style={{ width: '100%', padding: '10px 14px 10px 36px', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+            placeholder="Rechercher par nom, email ou forfait..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, overflowX: 'auto', paddingBottom: 2 }}>
           {([
-            { key: 'all', label: `Tous (${counts.all})`, color: '#5A6E68' },
-            { key: 'active', label: `✅ Actifs (${counts.active})`, color: '#4CAF78' },
-            { key: 'low', label: `⚠️ Faibles (${counts.low})`, color: '#F59E0B' },
-            { key: 'empty', label: `🔴 Épuisés (${counts.empty})`, color: '#F87171' },
-            { key: 'inactive', label: `⏸ Inactifs (${counts.inactive})`, color: '#5A6E68' },
+            { key: 'all',      label: `Tous (${counts.all})`,           color: C.text2 },
+            { key: 'active',   label: `Actifs (${counts.active})`,      color: C.accent },
+            { key: 'low',      label: `Faibles (${counts.low})`,        color: C.warn },
+            { key: 'empty',    label: `Épuisés (${counts.empty})`,      color: C.danger },
+            { key: 'inactive', label: `Inactifs (${counts.inactive})`,  color: C.text3 },
           ] as const).map(f => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              style={{ padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: `1px solid ${filter === f.key ? f.color : '#2C3A33'}`, background: filter === f.key ? f.color + '22' : 'transparent', color: filter === f.key ? f.color : '#5A6E68', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: `1px solid ${filter === f.key ? f.color + '60' : C.border}`, background: filter === f.key ? f.color + '18' : 'transparent', color: filter === f.key ? f.color : C.text3, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
             >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: f.color, display: 'inline-block' }} />
               {f.label}
             </button>
           ))}
         </div>
 
-        {/* Cards */}
-        {loading && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#5A6E68' }}>Chargement...</div>
-        )}
-        {!loading && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 40, color: '#5A6E68', fontSize: 14 }}>Aucun client trouvé</div>
-        )}
+        {loading && <div style={{ textAlign: 'center', padding: 48, color: C.text3, fontSize: 14 }}>Chargement...</div>}
+        {!loading && filtered.length === 0 && <div style={{ textAlign: 'center', padding: 48, color: C.text3, fontSize: 14 }}>Aucun résultat</div>}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(c => {
             const level = alertLevel(c)
             const isSaving = saving === c.id
             const isOpen = expanded === c.id
             const pct = c.seances_totales > 0 ? Math.round((c.seances_restantes / c.seances_totales) * 100) : 0
-            const borderColor = level === 'ok' ? '#2C3A33' : level === 'low' ? '#F59E0B44' : level === 'empty' || level === 'expired' ? '#F8717144' : '#2C3A33'
-            const forfaitColor = FORFAIT_COLOR[c.type_forfait] ?? '#3D6255'
+            const barColor = level === 'empty' || level === 'expired' ? C.danger : level === 'low' ? C.warn : C.accent
 
             return (
-              <div key={c.id} style={{ background: '#1E2E26', border: `1px solid ${borderColor}`, borderRadius: 12, overflow: 'hidden', opacity: isSaving ? 0.7 : 1, transition: 'opacity .2s' }}>
+              <div key={c.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', opacity: isSaving ? 0.6 : 1, transition: 'opacity .15s' }}>
 
-                {/* Card header */}
-                <div style={{ padding: '14px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                {/* Main row */}
+                <div style={{ padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: '#E4EDE8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nom}</span>
-                        {level === 'low' && <span style={{ fontSize: 10, background: '#F59E0B22', color: '#F59E0B', padding: '2px 6px', borderRadius: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>⚠️ Faible</span>}
-                        {(level === 'empty' || level === 'expired') && <span style={{ fontSize: 10, background: '#F8717122', color: '#F87171', padding: '2px 6px', borderRadius: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>Épuisé</span>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                        <StatusDot level={level} />
+                        <span style={{ fontSize: 15, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nom}</span>
+                        {level === 'low' && <span style={{ fontSize: 10, fontWeight: 700, color: C.warn, background: C.warnBg, border: `1px solid ${C.warn}40`, padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap' }}>Faible</span>}
+                        {(level === 'empty' || level === 'expired') && <span style={{ fontSize: 10, fontWeight: 700, color: C.danger, background: C.dangerBg, border: `1px solid ${C.dangerBorder}`, padding: '2px 7px', borderRadius: 10, whiteSpace: 'nowrap' }}>{level === 'expired' ? 'Expiré' : 'Épuisé'}</span>}
                       </div>
-                      <div style={{ fontSize: 12, color: '#5A6E68', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</div>
+                      <span style={{ fontSize: 12, color: C.text3 }}>{c.email}</span>
                     </div>
-                    <span style={{ padding: '3px 10px', borderRadius: 10, fontSize: 11, fontWeight: 700, background: forfaitColor + '33', color: forfaitColor, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: C.surface2, color: C.text2, border: `1px solid ${C.border}`, whiteSpace: 'nowrap', flexShrink: 0 }}>
                       {LABELS[c.type_forfait] ?? c.type_forfait}
                     </span>
                   </div>
 
-                  {/* Progress + counter */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ background: '#243029', borderRadius: 100, height: 6, marginBottom: 6 }}>
-                        <div style={{ background: level === 'empty' || level === 'expired' ? '#F87171' : level === 'low' ? '#F59E0B' : '#3D6255', borderRadius: 100, height: 6, width: `${pct}%`, transition: 'width .4s' }} />
+                      <div style={{ background: C.surface2, borderRadius: 100, height: 4, marginBottom: 6 }}>
+                        <div style={{ background: barColor, borderRadius: 100, height: 4, width: `${pct}%`, transition: 'width .3s' }} />
                       </div>
-                      <div style={{ fontSize: 11, color: '#5A6E68' }}>{c.seances_restantes} / {c.seances_totales} séances</div>
+                      <span style={{ fontSize: 12, color: C.text3 }}>{c.seances_restantes} / {c.seances_totales} séances</span>
                     </div>
 
                     {/* Stepper */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                      <button
-                        disabled={c.seances_restantes <= 0 || isSaving}
-                        onClick={() => patch(c.id, { seances_restantes: c.seances_restantes - 1 })}
-                        style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #2C3A33', background: c.seances_restantes <= 0 ? '#1A2820' : '#243029', color: c.seances_restantes <= 0 ? '#3D4A44' : '#7AA394', fontSize: 20, cursor: c.seances_restantes <= 0 ? 'not-allowed' : 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >−</button>
-                      <span style={{ minWidth: 28, textAlign: 'center', fontSize: 18, fontWeight: 700, color: '#E4EDE8' }}>{c.seances_restantes}</span>
-                      <button
-                        disabled={c.seances_restantes >= c.seances_totales || isSaving}
-                        onClick={() => patch(c.id, { seances_restantes: c.seances_restantes + 1 })}
-                        style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #2C3A33', background: c.seances_restantes >= c.seances_totales ? '#1A2820' : '#243029', color: c.seances_restantes >= c.seances_totales ? '#3D4A44' : '#7AA394', fontSize: 20, cursor: c.seances_restantes >= c.seances_totales ? 'not-allowed' : 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >+</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                      <button disabled={c.seances_restantes <= 0 || isSaving} onClick={() => patch(c.id, { seances_restantes: c.seances_restantes - 1 })}
+                        style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface2, color: c.seances_restantes <= 0 ? C.border : C.text2, fontSize: 16, fontWeight: 700, cursor: c.seances_restantes <= 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                      <span style={{ minWidth: 30, textAlign: 'center', fontSize: 16, fontWeight: 700, color: C.text }}>{c.seances_restantes}</span>
+                      <button disabled={c.seances_restantes >= c.seances_totales || isSaving} onClick={() => patch(c.id, { seances_restantes: c.seances_restantes + 1 })}
+                        style={{ width: 30, height: 30, borderRadius: 6, border: `1px solid ${C.border}`, background: C.surface2, color: c.seances_restantes >= c.seances_totales ? C.border : C.text2, fontSize: 16, fontWeight: 700, cursor: c.seances_restantes >= c.seances_totales ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                     </div>
                   </div>
                 </div>
 
-                {/* Actions row */}
-                <div style={{ display: 'flex', gap: 0, borderTop: '1px solid #243029' }}>
-                  <button
-                    onClick={() => patch(c.id, { actif: !c.actif })}
-                    disabled={isSaving}
-                    style={{ flex: 1, padding: '10px 8px', background: 'transparent', border: 'none', borderRight: '1px solid #243029', color: c.actif ? '#4CAF78' : '#F87171', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    {c.actif ? '✅ Actif' : '⏸ Inactif'}
-                  </button>
-                  <button
-                    onClick={() => renew(c.id, c.nom)}
-                    disabled={isSaving}
-                    style={{ flex: 1, padding: '10px 8px', background: 'transparent', border: 'none', borderRight: '1px solid #243029', color: '#B8966A', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    🔄 Renouveler
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingNote(c.id)
-                      setNoteValue(c.notes ?? '')
-                    }}
-                    style={{ flex: 1, padding: '10px 8px', background: 'transparent', border: 'none', borderRight: '1px solid #243029', color: '#7AA394', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    📝 Note{c.notes ? ' •' : ''}
-                  </button>
-                  <button
-                    onClick={() => toggleExpand(c.id)}
-                    style={{ flex: 1, padding: '10px 8px', background: 'transparent', border: 'none', color: '#7AA394', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    {isOpen ? '▲ Fermer' : '▼ Historique'}
-                  </button>
+                {/* Action bar */}
+                <div style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
+                  {[
+                    { label: c.actif ? 'Actif' : 'Inactif', color: c.actif ? C.accent : C.danger, action: () => patch(c.id, { actif: !c.actif }) },
+                    { label: 'Renouveler', color: C.text2, action: () => renew(c.id, c.nom) },
+                    { label: `Note${c.notes ? ' •' : ''}`, color: C.text2, action: () => { setEditingNote(c.id); setNoteValue(c.notes ?? '') } },
+                    { label: isOpen ? 'Fermer' : 'Historique', color: C.text2, action: () => toggleExpand(c.id) },
+                  ].map((btn, i, arr) => (
+                    <button key={btn.label} onClick={btn.action} disabled={isSaving}
+                      style={{ flex: 1, padding: '10px 4px', background: 'transparent', border: 'none', borderRight: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', color: btn.color, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                      {btn.label}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Note editor */}
                 {editingNote === c.id && (
-                  <div style={{ padding: '12px 16px', borderTop: '1px solid #243029', background: '#192820' }}>
-                    <textarea
-                      value={noteValue}
-                      onChange={e => setNoteValue(e.target.value)}
-                      placeholder="Ajouter une note (allergie, préférence, info utile...)"
-                      style={{ width: '100%', padding: '10px', background: '#243029', border: '1px solid #2C3A33', borderRadius: 8, color: '#E4EDE8', fontSize: 13, resize: 'vertical', minHeight: 72, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                    />
+                  <div style={{ padding: '14px 18px', borderTop: `1px solid ${C.border}`, background: C.bg }}>
+                    <textarea value={noteValue} onChange={e => setNoteValue(e.target.value)} placeholder="Allergie, préférence, information utile..." rows={3}
+                      style={{ width: '100%', padding: '10px 12px', background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: 1.5 }} />
                     <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <button
-                        onClick={() => saveNote(c.id)}
-                        style={{ flex: 1, padding: '9px', background: '#3D6255', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-                      >Enregistrer</button>
-                      <button
-                        onClick={() => setEditingNote(null)}
-                        style={{ padding: '9px 16px', background: 'transparent', border: '1px solid #2C3A33', borderRadius: 8, color: '#7AA394', fontSize: 13, cursor: 'pointer' }}
-                      >Annuler</button>
+                      <button onClick={() => saveNote(c.id)} style={{ flex: 1, padding: '9px', background: C.accent, border: 'none', borderRadius: 7, color: '#0D1F17', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Enregistrer</button>
+                      <button onClick={() => setEditingNote(null)} style={{ padding: '9px 16px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 7, color: C.text2, fontSize: 13, cursor: 'pointer' }}>Annuler</button>
                     </div>
                   </div>
                 )}
 
-                {/* Current note display */}
+                {/* Note display */}
                 {c.notes && editingNote !== c.id && (
-                  <div style={{ padding: '8px 16px', borderTop: '1px solid #1A2820', background: '#192820' }}>
-                    <p style={{ margin: 0, fontSize: 12, color: '#7AA394', fontStyle: 'italic' }}>📝 {c.notes}</p>
+                  <div style={{ padding: '8px 18px', borderTop: `1px solid ${C.bg}`, background: C.surface2 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: C.text2, fontStyle: 'italic' }}>{c.notes}</p>
                   </div>
                 )}
 
-                {/* Expiry warning */}
+                {/* Expiry */}
                 {c.expires_at && (
-                  <div style={{ padding: '6px 16px', background: new Date(c.expires_at) < new Date() ? '#2C151522' : '#1A2820', borderTop: '1px solid #1A2820' }}>
-                    <p style={{ margin: 0, fontSize: 11, color: new Date(c.expires_at) < new Date() ? '#F87171' : '#B8966A' }}>
-                      ⏳ Expire le {new Date(c.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
+                  <div style={{ padding: '7px 18px', background: C.bg, borderTop: `1px solid ${C.surface2}` }}>
+                    <span style={{ fontSize: 11, color: new Date(c.expires_at) < new Date() ? C.danger : '#B8966A' }}>
+                      Expire le {new Date(c.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {new Date(c.expires_at) < new Date() ? ' — expiré' : ''}
+                    </span>
                   </div>
                 )}
 
-                {/* History panel */}
+                {/* History */}
                 {isOpen && (
-                  <div style={{ padding: '12px 16px', borderTop: '1px solid #243029', background: '#192820' }}>
-                    <p style={{ margin: '0 0 10px', fontSize: 11, color: '#5A6E68', letterSpacing: '.08em', textTransform: 'uppercase' }}>Historique des séances</p>
-                    {!history[c.id] && <p style={{ margin: 0, fontSize: 13, color: '#5A6E68' }}>Chargement...</p>}
-                    {history[c.id]?.length === 0 && <p style={{ margin: 0, fontSize: 13, color: '#5A6E68' }}>Aucune séance enregistrée</p>}
+                  <div style={{ padding: '14px 18px', borderTop: `1px solid ${C.border}`, background: C.bg }}>
+                    <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: C.text3, letterSpacing: '.1em', textTransform: 'uppercase' }}>Historique des séances</p>
+                    {!history[c.id] && <p style={{ margin: 0, fontSize: 13, color: C.text3 }}>Chargement...</p>}
+                    {history[c.id]?.length === 0 && <p style={{ margin: 0, fontSize: 13, color: C.text3 }}>Aucune séance enregistrée</p>}
                     {history[c.id]?.map((h, i) => (
-                      <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < history[c.id].length - 1 ? '1px solid #1A2820' : 'none' }}>
-                        <div style={{ width: 6, height: 6, borderRadius: 3, background: '#3D6255', flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, color: '#C8D8D0' }}>
-                          {new Date(h.validated_at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
-                        <span style={{ fontSize: 12, color: '#5A6E68', marginLeft: 'auto' }}>
-                          {new Date(h.validated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                      <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < history[c.id].length - 1 ? `1px solid ${C.surface}` : 'none' }}>
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accentBorder, flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, color: C.text2 }}>{new Date(h.validated_at).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span style={{ fontSize: 12, color: C.text3, marginLeft: 'auto' }}>{new Date(h.validated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     ))}
-                    <p style={{ margin: '10px 0 0', fontSize: 11, color: '#3D4A44' }}>Achat le {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p style={{ margin: '12px 0 0', fontSize: 11, color: C.text3 }}>Client depuis le {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                   </div>
                 )}
               </div>
