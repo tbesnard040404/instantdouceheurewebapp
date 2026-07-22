@@ -125,7 +125,7 @@ export default function ScanPage() {
             <p style={{ margin: '0 0 24px', fontSize: 13, color: '#5A5D75', lineHeight: 1.5 }}>Cliquez pour autoriser la caméra et scanner le QR code du client.</p>
             <button
               onClick={requestCamera}
-              style={{ padding: '12px 28px', background: '#4CAF78', border: 'none', borderRadius: 8, color: '#0D1F17', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+              style={{ padding: '12px 28px', background: '#1C2E26', border: '1px solid #2D4A3E', borderRadius: 8, color: '#4CAF78', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
             >
               Activer la caméra
             </button>
