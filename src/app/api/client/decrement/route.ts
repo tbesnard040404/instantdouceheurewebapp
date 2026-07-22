@@ -44,5 +44,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Update failed' }, { status: 500 })
   }
 
+  // Log the session in history
+  await supabase.from('seances_log').insert({ client_id: client.id })
+
   return NextResponse.json({ seances_restantes: client.seances_restantes - 1 })
 }
