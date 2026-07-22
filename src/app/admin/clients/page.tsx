@@ -115,7 +115,7 @@ export default function AdminClientsPage() {
   async function loadHistory(id: string) {
     if (history[id]) return
     const res = await fetch(`/api/admin/clients/${id}/history`)
-    if (res.ok) setHistory(prev => ({ ...prev, [id]: await res.json() }))
+    if (res.ok) { const json = await res.json(); setHistory(prev => ({ ...prev, [id]: json })) }
   }
 
   function toggleExpand(id: string) {
