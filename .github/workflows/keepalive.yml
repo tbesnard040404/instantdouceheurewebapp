@@ -1,0 +1,25 @@
+name: Supabase keepalive
+
+on:
+  schedule:
+    # Toutes les 90 min — ~16 déclenchements/jour
+    # Chaque run tire au sort (62% de chance d'appeler) → moyenne 8-12 appels/jour
+    - cron: '0 * * * *'
+    - cron: '30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping aléatoire
+        env:
+          PING_URL: ${{ secrets.PING_URL }}
+        run: |
+          ROLL=$((RANDOM % 100))
+          if [ $ROLL -lt 62 ]; then
+            echo "Ping envoyé (roll=$ROLL)"
+            curl -sf "$PING_URL/api/ping" > /dev/null
+          else
+            echo "Skipped ce cycle (roll=$ROLL)"
+          fi
