@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabasePublic } from '@/lib/supabase-public'
 import { sanitizeText } from '@/lib/sanitize'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabasePublic
     .from('clients')
     .select('nom, type_forfait, seances_restantes, seances_totales, expires_at, actif')
     .eq('qr_token', token)

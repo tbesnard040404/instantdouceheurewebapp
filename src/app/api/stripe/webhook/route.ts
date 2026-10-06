@@ -76,15 +76,20 @@ export async function POST(req: NextRequest) {
 
   const qrBase64 = await generateQRCodeBase64(qrToken)
 
-  await sendClientEmail({
-    to: email,
-    nom,
-    typeForfait,
-    seancesTotales,
-    qrCodeBase64: qrBase64,
-    expiresAt,
-    montantCadeau,
-  })
+  try {
+    await sendClientEmail({
+      to: email,
+      nom,
+      typeForfait,
+      seancesTotales,
+      qrCodeBase64: qrBase64,
+      expiresAt,
+      montantCadeau,
+    })
+  } catch (emailError) {
+    console.error('Email send failed:', emailError)
+    return NextResponse.json({ error: 'Email error' }, { status: 500 })
+  }
 
   return NextResponse.json({ received: true })
 }

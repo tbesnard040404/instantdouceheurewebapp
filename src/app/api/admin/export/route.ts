@@ -24,10 +24,11 @@ export async function GET() {
   }
 
   const header = 'Nom,Email,Forfait,Séances totales,Séances restantes,Statut,Expiration,Date achat'
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
   const rows = (data ?? []).map(c => [
-    `"${c.nom}"`,
-    `"${c.email}"`,
-    `"${LABELS[c.type_forfait] ?? c.type_forfait}"`,
+    esc(c.nom),
+    esc(c.email),
+    esc(LABELS[c.type_forfait] ?? c.type_forfait),
     c.seances_totales,
     c.seances_restantes,
     c.actif ? 'Actif' : 'Inactif',

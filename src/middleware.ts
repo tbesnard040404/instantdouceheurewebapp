@@ -5,7 +5,6 @@ const RATE_MAP = new Map<string, { hits: number; resetAt: number }>()
 const RATE_RULES: { pattern: RegExp; max: number }[] = [
   { pattern: /^\/admin\/login/, max: 10 },
   { pattern: /^\/api\/admin\/login/, max: 10 },
-  { pattern: /^\/api\/stripe\//, max: 30 },
   { pattern: /^\/api\//, max: 60 },
 ]
 
