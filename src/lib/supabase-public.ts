@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+let instance: ReturnType<typeof createClient> | null = null
 
-export const supabasePublic = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false,
-  },
-})
+export function getSupabasePublic() {
+  if (!instance) {
+    const url = process.env.SUPABASE_URL!
+    const key = process.env.SUPABASE_ANON_KEY!
+    instance = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    })
+  }
+  return instance
+}
