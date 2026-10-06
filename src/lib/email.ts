@@ -67,7 +67,7 @@ export async function sendClientEmail(params: SendClientEmailParams) {
 
           <p style="color:#1A2820;font-size:15px;margin:0 0 8px;">Présentez ce QR code à chaque séance :</p>
           <div style="text-align:center;margin:20px 0;">
-            <img src="${qrCodeBase64}" alt="QR code forfait" width="200" height="200" style="border-radius:8px;border:4px solid #3D6255;">
+            <img src="cid:qrcode" alt="QR code forfait" width="200" height="200" style="border-radius:8px;border:4px solid #3D6255;">
           </div>
           <p style="color:#5A6E68;font-size:13px;text-align:center;margin:0 0 32px;">Conservez cet email précieusement — il est votre sésame.</p>
 
@@ -86,10 +86,20 @@ export async function sendClientEmail(params: SendClientEmailParams) {
 </body>
 </html>`
 
+  const qrBase64Data = qrCodeBase64.replace(/^data:image\/png;base64,/, '')
+
   await resend.emails.send({
     from: 'Instant Douce\'Heure <noreply@instantdouceheure.com>',
     to,
     subject: isGift ? `🎁 Votre carte cadeau Instant Douce'Heure` : `Votre forfait bien-être — Instant Douce'Heure`,
     html,
+    attachments: [
+      {
+        filename: 'qrcode.png',
+        content: Buffer.from(qrBase64Data, 'base64'),
+        contentType: 'image/png',
+        contentId: 'qrcode',
+      },
+    ],
   })
 }
