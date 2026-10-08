@@ -49,6 +49,11 @@ export async function POST(req: NextRequest) {
   const nom = sanitizeText(session.customer_details?.name ?? 'Client')
   const email = sanitizeText(session.customer_details?.email ?? '')
   const montantCadeau = typeForfait === 'cadeau' ? Math.round((session.amount_total ?? 0) / 100) : null
+  if (!meta.type_forfait || !(typeForfait in FORFAIT_SEANCES)) {
+    console.error(
+      `[webhook] type_forfait manquant ou inconnu ("${meta.type_forfait ?? ''}") pour la session ${paymentId} — vérifier la métadonnée du Payment Link Stripe`
+    )
+  }
   const seancesTotales = FORFAIT_SEANCES[typeForfait] ?? 5
 
   const expiresAt = typeForfait === 'cadeau'

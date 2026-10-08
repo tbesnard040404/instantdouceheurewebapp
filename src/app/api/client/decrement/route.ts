@@ -10,7 +10,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { token } = await req.json()
+  let token: unknown
+  try {
+    ({ token } = await req.json())
+  } catch {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+  }
+  if (typeof token !== 'string') {
+    return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
+  }
   const cleanToken = sanitizeText(token)
 
   if (!UUID_REGEX.test(cleanToken)) {
@@ -50,8 +58,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Conflit, réessayez' }, { status: 409 })
   }
 
-  // Log the session in history
-  await supabase.from('seances_log').insert({ client_id: client.id })
+  const { error: logError } = await supabase.from('seances_log').insert({ client_id: client.id })
+  if (logError) {
+    console.error('seances_log insert failed for client', client.id, logError.message)
+  }
 
   return NextResponse.json({ seances_restantes: updateResult[0].seances_restantes })
 }

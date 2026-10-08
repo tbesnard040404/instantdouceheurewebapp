@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { isAdminAuthenticated } from '@/lib/auth'
 import { sanitizeText } from '@/lib/sanitize'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,7 +14,16 @@ export async function PATCH(
   }
 
   const { id } = await params
-  const body = await req.json()
+  if (!UUID_REGEX.test(id)) {
+    return NextResponse.json({ error: 'ID invalide' }, { status: 400 })
+  }
+
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+  }
   const updates: Record<string, unknown> = {}
 
   if (typeof body.seances_restantes === 'number') {

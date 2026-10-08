@@ -11,6 +11,7 @@ export async function GET() {
     .from('clients')
     .select('nom, email, type_forfait, seances_totales, seances_restantes, actif, expires_at, created_at')
     .order('created_at', { ascending: false })
+    .limit(5000)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -24,7 +25,10 @@ export async function GET() {
   }
 
   const header = 'Nom,Email,Forfait,Séances totales,Séances restantes,Statut,Expiration,Date achat'
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const esc = (v: string) => {
+    const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v
+    return `"${safe.replace(/"/g, '""')}"`
+  }
   const rows = (data ?? []).map(c => [
     esc(c.nom),
     esc(c.email),
