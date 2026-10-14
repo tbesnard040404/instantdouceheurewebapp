@@ -19,7 +19,7 @@ jobs:
           ROLL=$((RANDOM % 100))
           if [ $ROLL -lt 62 ]; then
             echo "Ping envoyé (roll=$ROLL)"
-            curl -sf "$PING_URL/api/ping" > /dev/null
+            curl -sf --retry 3 --retry-delay 10 "$PING_URL/api/ping"
           else
             echo "Skipped ce cycle (roll=$ROLL)"
           fi
