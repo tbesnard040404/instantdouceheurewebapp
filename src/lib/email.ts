@@ -13,10 +13,10 @@ interface SendClientEmailParams {
 }
 
 const FORFAIT_LABELS: Record<string, string> = {
-  essentiel: 'Forfait Essentiel (5 séances)',
-  regulier: 'Forfait Régulier (10 séances)',
-  intensif: 'Forfait Intensif (15 séances)',
-  grossesse: 'Forfait Grossesse (5 séances)',
+  essentiel: 'Forfait Essentiel (6 séances)',
+  regulier: 'Forfait Régulier (12 séances)',
+  intensif: 'Forfait Intensif (12 séances)',
+  grossesse: 'Forfait Grossesse (9 séances)',
   perinatalite: 'Forfait Périnatalité (8 séances)',
   cadeau: 'Carte Cadeau',
 }

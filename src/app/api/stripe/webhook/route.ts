@@ -9,10 +9,10 @@ import { sanitizeText } from '@/lib/sanitize'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 const FORFAIT_SEANCES: Record<string, number> = {
-  essentiel: 5,
-  regulier: 10,
-  intensif: 15,
-  grossesse: 5,
+  essentiel: 6,
+  regulier: 12,
+  intensif: 12,
+  grossesse: 9,
   perinatalite: 8,
   cadeau: 1,
 }
