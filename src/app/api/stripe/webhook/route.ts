@@ -13,7 +13,7 @@ const FORFAIT_SEANCES: Record<string, number> = {
   regulier: 12,
   intensif: 12,
   grossesse: 9,
-  perinatalite: 8,
+  perinatalite: 15,
   cadeau: 1,
 }
 

@@ -17,7 +17,7 @@ const FORFAIT_LABELS: Record<string, string> = {
   regulier: 'Forfait Régulier (12 séances)',
   intensif: 'Forfait Intensif (12 séances)',
   grossesse: 'Forfait Grossesse (9 séances)',
-  perinatalite: 'Forfait Périnatalité (8 séances)',
+  perinatalite: 'Forfait Périnatalité (15 séances)',
   cadeau: 'Carte Cadeau',
 }
 
